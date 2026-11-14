@@ -1,45 +1,119 @@
 name: release
 
 on:
-  workflow_dispatch:
   push:
     tags:
-      - 'v*'
+      - 'v*-video.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing video release tag to build
+        required: true
+        type: string
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
-  homebrew:
-    runs-on: ubuntu-22.04
+  test:
+    runs-on: ubuntu-24.04
     steps:
-      - name: Bump Homebrew formula
-        uses: dawidd6/action-homebrew-bump-formula@v8
+      - uses: actions/checkout@v7
         with:
-          token: ${{ secrets.RELEASE_TOKEN }}
-          formula: telegram-downloader
-  goreleaser:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
+          ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
-      - name: Fetch all tags
-        run: git fetch --force --tags
-      - name: Set up Go
-        uses: actions/setup-go@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
-      - name: Get previous tag
-        run: echo "PREV_TAG=$(git describe --tags --match "v*" --abbrev=0 HEAD^)" >> $GITHUB_ENV
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v7
+          cache-dependency-path: |
+            go.sum
+            core/go.sum
+            extension/go.sum
+      - name: Unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t packages < <(go list ./... | grep -v '/test\($\|/\)')
+          go test "${packages[@]}"
+          go test ./core/uploader ./core/util/mediautil
+
+  build:
+    needs: test
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [windows, linux, darwin]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7
         with:
-          distribution: goreleaser
-          version: v1.18.2
-          args: release --rm-dist --timeout 1h
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            core/go.sum
+            extension/go.sum
+      - name: Build release archive
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          GORELEASER_PREVIOUS_TAG: ${{ env.PREV_TAG }}
+          TARGET_OS: ${{ matrix.goos }}
+          TARGET_ARCH: ${{ matrix.goarch }}
+        run: bash scripts/package-release.sh "$RELEASE_TAG" "$TARGET_OS" "$TARGET_ARCH" dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: package-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/tdl_*.zip
+            dist/tdl_*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: package-*
+          path: dist
+          merge-multiple: true
+      - name: Checksums and release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          archives=(dist/tdl_*.zip dist/tdl_*.tar.gz)
+          test "${#archives[@]}" -eq 6
+          (cd dist && sha256sum tdl_*.zip tdl_*.tar.gz > tdl_checksums.txt)
+          if gh release view "$RELEASE_TAG" --json isDraft >/dev/null 2>&1; then
+            test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = true
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft \
+              --title "tdl $RELEASE_TAG 视频上传增强版" \
+              --notes-file docs/releases/video-upload.md
+          fi
+          gh release upload "$RELEASE_TAG" "${archives[@]}" dist/tdl_checksums.txt --clobber
+          test "$(gh release view "$RELEASE_TAG" --json assets --jq '.assets | length')" -eq 7
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest

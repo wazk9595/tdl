@@ -31,6 +31,8 @@
 
 ### 此分支的视频上传修复
 
+直接下载：[各平台预编译安装包](https://github.com/wazk9595/tdl/releases/latest)，安装步骤见 [INSTALL-video.md](INSTALL-video.md)。
+
 使用 `tdl up -p video.mp4 --video-mode stream` 可保留 H.264/HEVC/AV1 编码，
 无损调整 MP4 索引位置后作为视频发送，并在发送前确认 Telegram 保留了封面和流式播放属性。
 需要安装 FFmpeg（包含 FFprobe）；其他编码可使用 `--video-mode compatible` 转换。

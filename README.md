@@ -24,6 +24,12 @@ English | <a href="README_zh.md">简体中文</a>
 - Upload files to Telegram
 - Export messages/members/subscribers to JSON
 
+### Video upload fork
+
+[Download prebuilt binaries](https://github.com/wazk9595/tdl/releases/latest) for Windows, macOS, and Linux (x86_64 / ARM64).
+See [INSTALL-video.md](INSTALL-video.md) for installation and FFmpeg requirements.
+This fork supports lossless streaming preparation with `--video-mode stream`, reliable thumbnails, and validated video metadata.
+
 ## Preview
 
 It reaches my proxy's speed limit, and the **speed depends on whether you are a premium**

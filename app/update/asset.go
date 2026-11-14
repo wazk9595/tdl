@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	repoOwner = "iyear"
+	repoOwner = "wazk9595"
 	repoName  = "tdl"
 
 	checksumAssetName = repoName + "_checksums.txt"
