@@ -30,6 +30,14 @@ English | <a href="README_zh.md">简体中文</a>
 See [INSTALL-video.md](INSTALL-video.md) for installation and FFmpeg requirements.
 This fork supports lossless streaming preparation with `--video-mode stream`, reliable thumbnails, and validated video metadata.
 
+```sh
+tdl send "folder" --to "https://t.me/c/1234567890/42"
+```
+
+Recursively upload a folder to a forum topic with SHA256 deduplication, durable receipts, and remote verification.
+Repeat the same command to resume. Videos preserve their codecs by default; incompatible codecs require `--allow-transcode`.
+Use `--dry-run` to preview. Previously uploaded files are not imported by filename. Keep the task journal for future runs.
+
 ## Preview
 
 It reaches my proxy's speed limit, and the **speed depends on whether you are a premium**

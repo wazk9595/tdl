@@ -29,6 +29,11 @@ type VideoInfo struct {
 
 var ErrNoVideo = errors.New("no video stream")
 
+const (
+	videoModeStream = "stream"
+	codecH264       = "h264"
+)
+
 func IsVideoFile(name, mime string) bool {
 	if IsVideo(mime) {
 		return true
@@ -191,8 +196,9 @@ func (v *PreparedVideo) Close() error {
 }
 
 func copyVideo(v *VideoInfo) bool {
-	return v.Codec == "h264" && v.PixelFormat == "yuv420p" && v.Rotation == 0
+	return v.Codec == codecH264 && v.PixelFormat == "yuv420p" && v.Rotation == 0
 }
+
 func copyAudio(v *VideoInfo) bool {
 	return !v.HasAudio || (v.AudioCodec == "aac" && v.AudioChannels <= 2)
 }
@@ -204,7 +210,7 @@ func PrepareVideo(ctx context.Context, path, mode, encoder string) (_ *PreparedV
 	if err != nil {
 		return nil, err
 	}
-	if mode == "stream" && ((info.Codec != "h264" && info.Codec != "hevc" && info.Codec != "av1") || !copyAudio(info)) {
+	if mode == videoModeStream && ((info.Codec != codecH264 && info.Codec != "hevc" && info.Codec != "av1") || !copyAudio(info)) {
 		return nil, errors.New("stream mode requires H.264/HEVC/AV1 with AAC audio; use compatible mode for other codecs")
 	}
 	v := &PreparedVideo{Path: path, Name: filepath.Base(path), Info: info}
@@ -217,7 +223,7 @@ func PrepareVideo(ctx context.Context, path, mode, encoder string) (_ *PreparedV
 	if err != nil {
 		return nil, err
 	}
-	if (mode == "compatible" && !(info.Streaming && copyVideo(info) && copyAudio(info))) || (mode == "stream" && !info.Streaming) {
+	if (mode == "compatible" && (!info.Streaming || !copyVideo(info) || !copyAudio(info))) || (mode == videoModeStream && !info.Streaming) {
 		v.Path = filepath.Join(v.Dir, "video.mp4")
 		v.Name = strings.TrimSuffix(v.Name, filepath.Ext(v.Name)) + ".mp4"
 		args := []string{"-hide_banner", "-loglevel", "error", "-nostdin", "-y"}
@@ -225,7 +231,7 @@ func PrepareVideo(ctx context.Context, path, mode, encoder string) (_ *PreparedV
 			args = append(args, "-hwaccel", "auto")
 		}
 		args = append(args, "-i", path, "-map", fmt.Sprintf("0:%d", info.Stream), "-map", "0:a:0?", "-sn", "-dn", "-map_metadata", "-1")
-		if copyVideo(info) || mode == "stream" {
+		if copyVideo(info) || mode == videoModeStream {
 			args = append(args, "-c:v", "copy")
 		} else {
 			args = append(args, "-c:v", encoder, "-pix_fmt", "yuv420p", "-vf", "scale=trunc(iw*sar/2)*2:trunc(ih/2)*2,setsar=1")
@@ -248,7 +254,7 @@ func PrepareVideo(ctx context.Context, path, mode, encoder string) (_ *PreparedV
 		if err != nil {
 			return nil, err
 		}
-		if (mode == "compatible" && !copyVideo(v.Info)) || !copyAudio(v.Info) || !v.Info.Streaming || (mode == "stream" && v.Info.Codec != info.Codec) {
+		if (mode == "compatible" && !copyVideo(v.Info)) || !copyAudio(v.Info) || !v.Info.Streaming || (mode == videoModeStream && v.Info.Codec != info.Codec) {
 			return nil, errors.New("converted video failed compatibility verification")
 		}
 	}

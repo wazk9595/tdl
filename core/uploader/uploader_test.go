@@ -80,6 +80,7 @@ func (r *thumbnailRPC) UploadSaveFilePart(context.Context, *tg.UploadSaveFilePar
 	r.small.Add(1)
 	return true, nil
 }
+
 func (r *thumbnailRPC) UploadSaveBigFilePart(context.Context, *tg.UploadSaveBigFilePartRequest) (bool, error) {
 	r.big.Add(1)
 	return true, nil

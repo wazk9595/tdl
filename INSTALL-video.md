@@ -50,7 +50,42 @@ tdl version
 tdl login -T qr
 ```
 
-优先保留原画质并支持边下载边播放：
+上传整个文件夹到话题，只需一个目录和一个链接：
+
+```sh
+tdl send "视频文件夹完整路径" --to "https://t.me/c/1234567890/42"
+```
+
+命令会递归扫描子文件夹，按 SHA256 跳过内容完全相同的副本。视频按视频发送并附带封面，
+照片按照片发送，其他内容按文件发送。默认保留视频原编码，必要时无损调整封装以支持流式播放。
+客户端能否解码 HEVC/AV1 仍取决于设备；需要广泛兼容时应使用 H.264/AAC。
+
+任务会记录在当前设备的 `.tdl/tasks`。中断后运行相同命令，会先核对原有回执，再继续未完成文件；
+新加入或内容改变的文件会上传。原文件始终保留。第一次使用该命令没有旧任务记录，
+不会把群里已有的同名文件认作已完成；更换文件夹位置、账号、目标或丢失任务记录会创建新任务。
+
+先检查链接、权限和文件数量，不实际上传：
+
+```sh
+tdl send "视频文件夹完整路径" --to "https://t.me/c/1234567890/42" --dry-run
+```
+
+不兼容的编码会列为待处理，不会自动重编码。明确允许转换时使用：
+
+```sh
+tdl send "视频文件夹完整路径" --to "https://t.me/c/1234567890/42" --allow-transcode
+```
+
+转码默认检测 NVIDIA 显卡；有显卡使用 NVENC，没有时使用 CPU。可通过 `--video-encoder` 明确指定。
+图片需要保留原始字节时加 `--original-images`。`--to me` 可上传到自己的收藏夹。
+本命令按文件逐条发送，不创建媒体组。
+
+远端消息已删除时默认只报告；确认需要补发才加 `--resend-missing`。
+发送回执丢失时先按媒体编号查找对应消息；无法确认时暂停该文件，核查后可加 `--retry-uncertain`，
+复用原随机消息编号重试。Telegram 对该编号的去重期限由服务器决定，因此不能保证无限期去重。
+保留任务目录才能续传；`--task-dir` 用于自定义位置，必须放在待上传目录之外。
+
+原有单文件上传命令仍可使用。优先保留原画质并支持边下载边播放：
 
 ```sh
 tdl up -p "视频完整路径" --video-mode stream
@@ -76,5 +111,8 @@ tdl up -p "视频完整路径" --video-mode compatible --video-encoder libx264
 Download the archive matching your OS and CPU from this fork's Releases page.
 Extract tdl into a directory on PATH. Install FFmpeg, including ffprobe, separately.
 Use `tdl login -T qr` to sign in, then `tdl up -p "video path" --video-mode stream` for lossless streaming preparation.
+Use `tdl send "folder" --to "https://t.me/c/1234567890/42"` for recursive, content-deduplicated uploads with durable receipts.
+Repeat the same command to verify and resume. Existing manual uploads are not imported by filename. Use `--dry-run` to preview,
+and `--allow-transcode` to explicitly permit incompatible codecs to be converted. Keep the task journal for future runs.
 For incompatible codecs without an NVIDIA GPU, use `--video-mode compatible --video-encoder libx264`.
 Checksums are provided in `tdl_checksums.txt`. Updates stay on the wazk9595/tdl fork.

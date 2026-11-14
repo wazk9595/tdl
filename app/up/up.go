@@ -60,7 +60,7 @@ func Run(ctx context.Context, c *telegram.Client, kvd storage.Storage, opts Opti
 	if opts.VideoEncoder == "" {
 		opts.VideoEncoder = "h264_nvenc"
 	}
-	if opts.VideoMode != "compatible" && opts.VideoMode != "original" && opts.VideoMode != "stream" && opts.VideoMode != "file" {
+	if opts.VideoMode != "compatible" && opts.VideoMode != "original" && opts.VideoMode != "stream" && opts.VideoMode != videoModeFile {
 		return fmt.Errorf("invalid --video-mode: use compatible, stream, original or file")
 	}
 	if opts.VideoEncoder != "h264_nvenc" && opts.VideoEncoder != "libx264" {

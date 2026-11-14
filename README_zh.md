@@ -33,6 +33,16 @@
 
 直接下载：[各平台预编译安装包](https://github.com/wazk9595/tdl/releases/latest)，安装步骤见 [INSTALL-video.md](INSTALL-video.md)。
 
+上传文件夹到指定话题：
+
+```sh
+tdl send "视频文件夹完整路径" --to "https://t.me/c/1234567890/42"
+```
+
+递归扫描、按内容去重、自动生成视频封面并记录发送回执。默认保留视频原编码；
+再次运行同一命令会核对消息并继续未完成文件。加 `--dry-run` 只预览；
+不兼容编码只有加 `--allow-transcode` 才会转换。首次运行不会按同名文件导入旧上传历史。
+
 使用 `tdl up -p video.mp4 --video-mode stream` 可保留 H.264/HEVC/AV1 编码，
 无损调整 MP4 索引位置后作为视频发送，并在发送前确认 Telegram 保留了封面和流式播放属性。
 需要安装 FFmpeg（包含 FFprobe）；其他编码可使用 `--video-mode compatible` 转换。

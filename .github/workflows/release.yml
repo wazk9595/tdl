@@ -44,6 +44,7 @@ jobs:
           mapfile -t packages < <(go list ./... | grep -v '/test\($\|/\)')
           go test "${packages[@]}"
           go test ./core/uploader ./core/util/mediautil
+          go test -race -p 1 ./app/send ./core/uploader
 
   build:
     needs: test

@@ -33,6 +33,7 @@ type Options struct {
 	Threads  int
 	Iter     Iter
 	Progress Progress
+	Hooks    *Hooks
 }
 
 func New(o Options) *Uploader {
@@ -125,6 +126,7 @@ func (u *Uploader) upload(ctx context.Context, elem Elem) error {
 	}
 
 	var media message.MediaOption = doc
+	var prepared tg.MessageMediaClass
 
 	switch {
 	case asFile:
@@ -153,6 +155,7 @@ func (u *Uploader) upload(ctx context.Context, elem Elem) error {
 		if uploadErr != nil {
 			return uploadErr
 		}
+		prepared = uploaded
 		media = message.Media(&tg.InputMediaDocument{ID: persisted.AsInput()}, caption)
 	case mediautil.IsImage(mime) && elem.AsPhoto():
 		// webp should be uploaded as document
@@ -165,13 +168,41 @@ func (u *Uploader) upload(ctx context.Context, elem Elem) error {
 		media = doc.Audio().Title(fsutil.GetNameWithoutExt(elem.File().Name()))
 	}
 
-	_, err = message.NewSender(u.opts.Client).
+	sender := taskSender(u.opts.Client, u.opts.Hooks).WithUploader(up)
+	if hooks := u.opts.Hooks; hooks != nil {
+		if prepared == nil {
+			prepared, err = sender.To(elem.To()).UploadMedia(ctx, media)
+			if err != nil {
+				return errors.Wrap(err, "prepare task media")
+			}
+		}
+		stored, err := storedMedia(prepared)
+		if err != nil {
+			return err
+		}
+		media = message.Media(stored, caption)
+		if hooks.BeforeSend != nil {
+			if err := hooks.BeforeSend(ctx, prepared); err != nil {
+				return err
+			}
+		}
+	}
+	updates, err := sender.
 		WithUploader(up).
 		To(elem.To()).
 		Reply(elem.Thread()).
 		Media(ctx, media)
 	if err != nil {
 		return errors.Wrap(err, "send message")
+	}
+	if hooks := u.opts.Hooks; hooks != nil && hooks.Sent != nil {
+		id, err := sentID(updates, hooks.RandomID)
+		if err != nil {
+			return err
+		}
+		if err := hooks.Sent(ctx, id); err != nil {
+			return err
+		}
 	}
 
 	return nil

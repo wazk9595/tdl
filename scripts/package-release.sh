@@ -32,6 +32,7 @@ if [[ "$target_os" != windows ]]; then chmod 755 "$stage/$binary"; fi
 if [[ "$target_os" == "$(go env GOHOSTOS)" && "$target_arch" == "$(go env GOHOSTARCH)" ]]; then
   "$stage/$binary" version
   "$stage/$binary" upload --help | grep -q -- --video-mode
+  "$stage/$binary" send --help | grep -q -- --allow-transcode
 fi
 
 archive="$output_dir/tdl_${os_name}_${arch_name}.${extension}"

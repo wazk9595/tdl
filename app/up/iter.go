@@ -26,6 +26,8 @@ type File struct {
 	Thumb string
 }
 
+const videoModeFile = "file"
+
 type dest struct {
 	Peer   string
 	Thread int
@@ -42,6 +44,7 @@ type iter struct {
 	delay                   time.Duration
 	manager                 *peers.Manager
 	videoMode, videoEncoder string
+	quiet                   bool
 
 	cur  int
 	err  error
@@ -133,8 +136,10 @@ func (i *iter) next(ctx context.Context, cur *File) (_ *iterElem, rerr error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "resolve thumbnail")
 	}
-	if i.videoMode != "file" && mediautil.IsVideoFile(cur.File, env.MIME) {
-		fmt.Printf("Preparing video (%s): %s\n", i.videoMode, cur.File)
+	if i.videoMode != videoModeFile && mediautil.IsVideoFile(cur.File, env.MIME) {
+		if !i.quiet {
+			fmt.Printf("Preparing video (%s): %s\n", i.videoMode, cur.File)
+		}
 		prepared, err = mediautil.PrepareVideo(ctx, cur.File, i.videoMode, i.videoEncoder)
 		if err != nil && !errors.Is(err, mediautil.ErrNoVideo) {
 			return nil, errors.Wrap(err, "prepare video; use --video-mode file to send as document")
@@ -167,7 +172,7 @@ func (i *iter) next(ctx context.Context, cur *File) (_ *iterElem, rerr error) {
 		remove:       i.remove,
 		originalPath: cur.File,
 		prepared:     prepared,
-		asFile:       i.videoMode == "file",
+		asFile:       i.videoMode == videoModeFile,
 	}, nil
 }
 

@@ -1,5 +1,21 @@
 本版提供 Windows、macOS、Linux 的 x86_64 和 ARM64 预编译程序，下载解压后即可使用，无需安装 Go 或编译源码。
 
+### v0.20.4-video.3：文件夹直接发到话题
+
+```sh
+tdl send "视频文件夹完整路径" --to "https://t.me/c/1234567890/42"
+```
+
+- 自动检查话题与权限，递归扫描子目录，以 SHA256 去重，不会误跳过同名不同内容的文件。
+- 视频默认保留原编码，按需无损调整封装、生成封面并核对流式属性；不兼容编码需明确加 `--allow-transcode`。
+- 持久记录服务器媒体编号、固定随机消息编号及发送回执。中断后重复原命令，先核对再继续。
+- 发送结果不明时查找对应媒体，不盲目重发；已被远端删除的消息默认报告，不自动补发。
+- 批量读取既有消息，避免续传时逐个发起核对请求。原有 `up` 命令保持可用。
+
+已在收藏夹实测视频、照片、文档上传与重复运行；单元测试覆盖断线回执丢失恢复、同名不同内容、
+源文件变更、任务锁与远端删除场景。首次使用没有既往任务记录，不会根据远端同名文件导入手动上传历史。
+任务记录保存在当前设备，需保留才能续传；本命令逐文件发送，不自动建立媒体组。
+
 ### 主要修复
 
 - 用 FFprobe 识别常见视频容器、编码、时长、显示尺寸及旋转信息。
@@ -40,4 +56,5 @@ tdl up -p "视频完整路径" --video-mode compatible --video-encoder libx264
 macOS/Linux 安装包经过交叉编译；Linux x86_64 在发布流程中检查 CLI 启动。尚未在所有平台实际登录 Telegram 上传。
 
 This fork adds reliable video metadata, sized JPEG thumbnails, lossless faststart remuxing, and validated streaming uploads.
+New in video.3: `tdl send FOLDER --to TOPIC_LINK` adds recursive SHA256 deduplication, durable receipts, and verified resume.
 Choose your platform archive, install FFmpeg separately, and see INSTALL-video.md for setup. No Go toolchain is needed.

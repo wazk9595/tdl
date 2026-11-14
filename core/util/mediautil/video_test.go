@@ -57,7 +57,7 @@ func TestVideoCompatibility(t *testing.T) {
 			}
 			temp := video.Dir
 			defer video.Close()
-			if video.Info.Codec != "h264" || video.Info.Width <= 0 || video.Info.Height <= 0 || !video.Info.Streaming || (video.Info.HasAudio && video.Info.AudioCodec != "aac") {
+			if video.Info.Codec != codecH264 || video.Info.Width <= 0 || video.Info.Height <= 0 || !video.Info.Streaming || (video.Info.HasAudio && video.Info.AudioCodec != "aac") {
 				t.Fatalf("incompatible output: %+v", video.Info)
 			}
 			if file.Name() == "11-rotated.mp4" && (video.Info.Width != 360 || video.Info.Height != 640) {
