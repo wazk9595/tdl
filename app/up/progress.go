@@ -54,6 +54,9 @@ func (p *progress) OnDone(elem uploader.Elem, err error) {
 	}
 	t := tracker.(*pw.Tracker)
 	e := elem.(*iterElem)
+	if e.prepared != nil {
+		defer e.prepared.Close()
+	}
 
 	if err := p.closeFile(e); err != nil {
 		p.fail(t, elem, errors.Wrap(err, "close file"))
@@ -66,7 +69,7 @@ func (p *progress) OnDone(elem uploader.Elem, err error) {
 	}
 
 	if e.remove {
-		if err := os.Remove(e.file.File.Name()); err != nil {
+		if err := os.Remove(e.originalPath); err != nil {
 			p.fail(t, elem, errors.Wrap(err, "remove file"))
 			return
 		}
@@ -93,7 +96,7 @@ func (p *progress) fail(t *pw.Tracker, elem uploader.Elem, err error) {
 }
 
 func (p *progress) tuple(elem uploader.Elem) tuple {
-	return tuple{elem.(*iterElem).file.File.Name(), elem.(*iterElem).to.ID()}
+	return tuple{elem.(*iterElem).originalPath, elem.(*iterElem).to.ID()}
 }
 
 func (p *progress) processMessage(elem uploader.Elem) string {
@@ -102,5 +105,5 @@ func (p *progress) processMessage(elem uploader.Elem) string {
 
 func (p *progress) elemString(elem uploader.Elem) string {
 	e := elem.(*iterElem)
-	return fmt.Sprintf("%s -> %s(%d)", e.file.File.Name(), e.to.VisibleName(), e.to.ID())
+	return fmt.Sprintf("%s -> %s(%d)", e.originalPath, e.to.VisibleName(), e.to.ID())
 }

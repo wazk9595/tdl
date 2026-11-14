@@ -33,6 +33,36 @@ tdl up -p /path/to/file -c CHAT
 tdl up -p /path/to/file -c CHAT --topic TOPIC_ID
 {{< /command >}}
 
+## 视频兼容处理（本地增强版）
+
+默认使用 `--video-mode compatible`。通过 FFprobe 读取视频流、时长、显示尺寸和旋转信息，
+支持 FFmpeg 能识别的常见 MP4、MOV、MKV、WebM、AVI、FLV、TS、WMV、MPEG、3GP 等视频。
+HEVC、AV1 及旧编码按需转换为 H.264/AAC MP4；兼容的编码只换封装，已经适合流式播放的 MP4 直接保留。
+发送时附带视频属性和缩略图，不会在处理失败后悄悄改成普通文件。
+
+要求安装 FFmpeg（包含 `ffmpeg` 和 `ffprobe`）。默认编码器 `h264_nvenc` 使用 NVIDIA 显卡；
+没有 NVIDIA 显卡时，可明确指定 `--video-encoder libx264` 使用 CPU。
+转换文件位于临时目录，成功或失败后均清理。默认保留源文件，只有显式使用 `--rm` 且发送成功才删除源文件。
+转换会重新编码不兼容的视频，画质和文件大小可能变化。
+换封装或转换时只保留首个非封面视频流和首条音轨；需要保存全部轨道时使用 `original` 模式。
+
+```powershell
+tdl up -p 'D:\Videos\clip.mkv' -c CHAT --topic TOPIC_ID
+```
+
+`--video-mode original` 保留原始字节，只附加视频属性和缩略图，能否播放取决于客户端对原编码和容器的支持。
+原文件索引在末尾时，此模式不能保证边下载边播放。`--video-mode stream` 则保留 H.264/HEVC/AV1 编码，
+无损换封装为索引在前的 MP4，不重新编码画面。发送前会检查服务器保留了封面及流式播放属性。
+
+优先保留画质并支持在线播放时，使用：
+
+```powershell
+tdl up -p 'D:\Videos\clip.mp4' -c CHAT --topic TOPIC_ID --video-mode stream
+```
+
+`--video-mode file` 明确作为普通文件发送，不需要 FFmpeg。
+`--photo` 仍仅用于图片，对视频无效。
+
 ## 消息路由
 
 通过基于[表达式](/reference/expr)的消息路由，将文件上传到不同的聊天：

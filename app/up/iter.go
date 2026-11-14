@@ -2,6 +2,7 @@ package up
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -31,32 +32,35 @@ type dest struct {
 }
 
 type iter struct {
-	files   []*File
-	to      *vm.Program
-	caption *vm.Program
-	chat    string
-	topic   int
-	photo   bool
-	remove  bool
-	delay   time.Duration
-	manager *peers.Manager
+	files                   []*File
+	to                      *vm.Program
+	caption                 *vm.Program
+	chat                    string
+	topic                   int
+	photo                   bool
+	remove                  bool
+	delay                   time.Duration
+	manager                 *peers.Manager
+	videoMode, videoEncoder string
 
 	cur  int
 	err  error
 	file uploader.Elem
 }
 
-func newIter(files []*File, to, caption *vm.Program, chat string, topic int, photo, remove bool, delay time.Duration, manager *peers.Manager) *iter {
+func newIter(files []*File, to, caption *vm.Program, chat string, topic int, photo, remove bool, delay time.Duration, manager *peers.Manager, videoMode, videoEncoder string) *iter {
 	return &iter{
-		files:   files,
-		to:      to,
-		caption: caption,
-		chat:    chat,
-		topic:   topic,
-		photo:   photo,
-		remove:  remove,
-		delay:   delay,
-		manager: manager,
+		files:        files,
+		to:           to,
+		caption:      caption,
+		chat:         chat,
+		topic:        topic,
+		photo:        photo,
+		remove:       remove,
+		delay:        delay,
+		manager:      manager,
+		videoMode:    videoMode,
+		videoEncoder: videoEncoder,
 
 		cur:  0,
 		err:  nil,
@@ -94,11 +98,24 @@ func (i *iter) Next(ctx context.Context) bool {
 	return true
 }
 
-func (i *iter) next(ctx context.Context, cur *File) (*iterElem, error) {
+func (i *iter) next(ctx context.Context, cur *File) (_ *iterElem, rerr error) {
 	file, err := i.resolveFile(cur.File)
 	if err != nil {
 		return nil, errors.Wrap(err, "resolve file")
 	}
+	var prepared *mediautil.PreparedVideo
+	var thumb *uploaderFile
+	defer func() {
+		if rerr != nil {
+			_ = file.Close()
+			if thumb != nil {
+				_ = thumb.Close()
+			}
+			if prepared != nil {
+				_ = prepared.Close()
+			}
+		}
+	}()
 
 	env := exprEnv(ctx, cur)
 
@@ -112,9 +129,31 @@ func (i *iter) next(ctx context.Context, cur *File) (*iterElem, error) {
 		return nil, errors.Wrap(err, "resolve caption")
 	}
 
-	thumb, err := i.resolveThumb(cur.Thumb)
+	thumb, err = i.resolveThumb(cur.Thumb)
 	if err != nil {
 		return nil, errors.Wrap(err, "resolve thumbnail")
+	}
+	if i.videoMode != "file" && mediautil.IsVideoFile(cur.File, env.MIME) {
+		fmt.Printf("Preparing video (%s): %s\n", i.videoMode, cur.File)
+		prepared, err = mediautil.PrepareVideo(ctx, cur.File, i.videoMode, i.videoEncoder)
+		if err != nil && !errors.Is(err, mediautil.ErrNoVideo) {
+			return nil, errors.Wrap(err, "prepare video; use --video-mode file to send as document")
+		}
+		if prepared != nil {
+			nextFile, err := i.resolveFile(prepared.Path)
+			if err != nil {
+				return nil, err
+			}
+			_ = file.Close()
+			file = nextFile
+			file.name = prepared.Name
+			if thumb == nil {
+				thumb, err = i.resolveThumb(prepared.Thumbnail)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 
 	return &iterElem{
@@ -124,8 +163,11 @@ func (i *iter) next(ctx context.Context, cur *File) (*iterElem, error) {
 		caption: caption,
 		thread:  thread,
 
-		asPhoto: i.photo,
-		remove:  i.remove,
+		asPhoto:      i.photo,
+		remove:       i.remove,
+		originalPath: cur.File,
+		prepared:     prepared,
+		asFile:       i.videoMode == "file",
 	}, nil
 }
 
@@ -137,6 +179,7 @@ func (i *iter) resolveFile(path string) (*uploaderFile, error) {
 
 	stat, err := f.Stat()
 	if err != nil {
+		_ = f.Close()
 		return nil, errors.Wrap(err, "stat file")
 	}
 
@@ -241,10 +284,15 @@ func (i *iter) resolveThumb(path string) (*uploaderFile, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "open thumbnail file")
 	}
+	stat, err := thumb.Stat()
+	if err != nil {
+		_ = thumb.Close()
+		return nil, err
+	}
 
 	return &uploaderFile{
 		File: thumb,
-		size: 0,
+		size: stat.Size(),
 	}, nil
 }
 

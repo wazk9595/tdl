@@ -47,6 +47,8 @@ func NewUpload() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&opts.Excludes, exclude, "e", []string{}, "exclude the specified file extensions")
 	cmd.Flags().BoolVar(&opts.Remove, "rm", false, "remove the uploaded files after uploading")
 	cmd.Flags().BoolVar(&opts.Photo, "photo", false, "upload the image as a photo instead of a file")
+	cmd.Flags().StringVar(&opts.VideoMode, "video-mode", "compatible", "video handling: compatible (H.264/AAC MP4), stream (lossless faststart remux), original (keep bytes), file (document); requires FFmpeg for videos")
+	cmd.Flags().StringVar(&opts.VideoEncoder, "video-encoder", "h264_nvenc", "encoder for incompatible videos: h264_nvenc (NVIDIA GPU) or libx264 (CPU)")
 	cmd.Flags().StringVar(&opts.Caption, "caption", `"<code>"+FileName+"</code> - <code>"+MIME+"</code>"`, "caption for the uploaded media")
 
 	// completion and validation

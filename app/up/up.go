@@ -32,15 +32,17 @@ import (
 )
 
 type Options struct {
-	Chat     string
-	Thread   int
-	To       string
-	Paths    []string
-	Includes []string
-	Excludes []string
-	Remove   bool
-	Photo    bool
-	Caption  string
+	Chat         string
+	Thread       int
+	To           string
+	Paths        []string
+	Includes     []string
+	Excludes     []string
+	Remove       bool
+	Photo        bool
+	Caption      string
+	VideoMode    string
+	VideoEncoder string
 }
 
 type Env struct {
@@ -52,6 +54,18 @@ type Env struct {
 }
 
 func Run(ctx context.Context, c *telegram.Client, kvd storage.Storage, opts Options) (rerr error) {
+	if opts.VideoMode == "" {
+		opts.VideoMode = "compatible"
+	}
+	if opts.VideoEncoder == "" {
+		opts.VideoEncoder = "h264_nvenc"
+	}
+	if opts.VideoMode != "compatible" && opts.VideoMode != "original" && opts.VideoMode != "stream" && opts.VideoMode != "file" {
+		return fmt.Errorf("invalid --video-mode: use compatible, stream, original or file")
+	}
+	if opts.VideoEncoder != "h264_nvenc" && opts.VideoEncoder != "libx264" {
+		return fmt.Errorf("invalid --video-encoder: use h264_nvenc or libx264")
+	}
 	if opts.To == "-" || opts.Caption == "-" {
 		fg := texpr.NewFieldsGetter(nil)
 
@@ -97,7 +111,7 @@ func Run(ctx context.Context, c *telegram.Client, kvd storage.Storage, opts Opti
 	options := uploader.Options{
 		Client:   pool.Default(ctx),
 		Threads:  viper.GetInt(consts.FlagThreads),
-		Iter:     newIter(files, to, caption, opts.Chat, opts.Thread, opts.Photo, opts.Remove, viper.GetDuration(consts.FlagDelay), manager),
+		Iter:     newIter(files, to, caption, opts.Chat, opts.Thread, opts.Photo, opts.Remove, viper.GetDuration(consts.FlagDelay), manager, opts.VideoMode, opts.VideoEncoder),
 		Progress: newProgress(upProgress),
 	}
 

@@ -29,6 +29,13 @@
 - 支持上传文件至 Telegram
 - 导出历史消息/成员/订阅者数据至 JSON 文件
 
+### 此分支的视频上传修复
+
+使用 `tdl up -p video.mp4 --video-mode stream` 可保留 H.264/HEVC/AV1 编码，
+无损调整 MP4 索引位置后作为视频发送，并在发送前确认 Telegram 保留了封面和流式播放属性。
+需要安装 FFmpeg（包含 FFprobe）；其他编码可使用 `--video-mode compatible` 转换。
+详细选项和限制见[视频上传说明](docs/content/zh/guide/upload.md)。
+
 ## 预览
 
 预览中的速度已经达到了代理的限制，同时**速度取决于你是否是付费用户**
