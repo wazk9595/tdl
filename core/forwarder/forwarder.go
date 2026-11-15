@@ -2,6 +2,7 @@ package forwarder
 
 import (
 	"context"
+	stderrors "errors"
 	"math/rand"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/gotd/td/bin"
 	"github.com/gotd/td/telegram/peers"
 	"github.com/gotd/td/tg"
+	"github.com/gotd/td/tgerr"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
@@ -51,6 +53,7 @@ func New(opts Options) *Forwarder {
 }
 
 func (f *Forwarder) Forward(ctx context.Context) error {
+	var failures []error
 	for f.opts.Iter.Next(ctx) {
 		elem := f.opts.Iter.Value()
 		if _, ok := f.sent[f.tuple(elem.From(), elem.Msg())]; ok {
@@ -59,12 +62,37 @@ func (f *Forwarder) Forward(ctx context.Context) error {
 		}
 
 		if _, ok := elem.Msg().GetGroupedID(); ok && elem.AsGrouped() {
-			grouped, err := tutil.GetGroupedMessages(ctx, f.opts.Pool.Default(ctx), elem.From().InputPeer(), elem.Msg())
+			var grouped []*tg.Message
+			var err error
+			prepared := false
+			if provider, ok := elem.(interface{ PreparedGroup() ([]*tg.Message, bool) }); ok {
+				grouped, prepared = provider.PreparedGroup()
+			}
+			if !prepared {
+				grouped, err = tutil.GetGroupedMessages(ctx, f.opts.Pool.Default(ctx), elem.From().InputPeer(), elem.Msg())
+			}
 			if err != nil {
+				f.opts.Progress.OnAdd(elem)
+				f.opts.Progress.OnDone(elem, err)
+				failures = append(failures, err)
+				if errors.Is(err, context.Canceled) {
+					break
+				}
+				continue
+			}
+			if len(grouped) == 0 {
+				err = errors.Errorf("empty media group for message %d", elem.Msg().ID)
+				f.opts.Progress.OnAdd(elem)
+				f.opts.Progress.OnDone(elem, err)
+				failures = append(failures, err)
 				continue
 			}
 
 			if err = f.forwardMessage(ctx, elem, grouped...); err != nil {
+				failures = append(failures, err)
+				if errors.Is(err, context.Canceled) {
+					break
+				}
 				continue
 			}
 
@@ -72,25 +100,26 @@ func (f *Forwarder) Forward(ctx context.Context) error {
 		}
 
 		if err := f.forwardMessage(ctx, elem); err != nil {
+			failures = append(failures, err)
 			// canceled by user, so we directly return error to stop all
 			if errors.Is(err, context.Canceled) {
-				return err
+				break
 			}
 			continue
 		}
 	}
 
-	return f.opts.Iter.Err()
+	return stderrors.Join(append(failures, f.opts.Iter.Err(), ctx.Err())...)
 }
 
 func (f *Forwarder) forwardMessage(ctx context.Context, elem Elem, grouped ...*tg.Message) (rerr error) {
 	f.opts.Progress.OnAdd(elem)
 	defer func() {
-		f.sent[f.tuple(elem.From(), elem.Msg())] = struct{}{}
-
-		// grouped message also should be marked as sent
-		for _, m := range grouped {
-			f.sent[f.tuple(elem.From(), m)] = struct{}{}
+		if rerr == nil {
+			f.sent[f.tuple(elem.From(), elem.Msg())] = struct{}{}
+			for _, m := range grouped {
+				f.sent[f.tuple(elem.From(), m)] = struct{}{}
+			}
 		}
 		f.opts.Progress.OnDone(elem, rerr)
 	}()
@@ -285,6 +314,9 @@ func (f *Forwarder) forwardMessage(ctx context.Context, elem Elem, grouped ...*t
 				}
 
 				if err = directForward(ids...); err != nil {
+					if !tgerr.Is(err, "CHAT_FORWARDS_RESTRICTED") {
+						return err
+					}
 					goto fallback
 				}
 
@@ -292,6 +324,9 @@ func (f *Forwarder) forwardMessage(ctx context.Context, elem Elem, grouped ...*t
 			}
 
 			if err = directForward(elem.Msg().ID); err != nil {
+				if !tgerr.Is(err, "CHAT_FORWARDS_RESTRICTED") {
+					return err
+				}
 				goto fallback
 			}
 			return nil
@@ -304,8 +339,7 @@ func (f *Forwarder) forwardMessage(ctx context.Context, elem Elem, grouped ...*t
 			for _, gm := range grouped {
 				m, err := convForwardedMedia(gm)
 				if err != nil {
-					log.Debug("Can't convert forwarded media", zap.Error(err))
-					continue
+					return errors.Wrapf(err, "prepare complete media group, message %d", gm.ID)
 				}
 
 				single := tg.InputSingleMedia{

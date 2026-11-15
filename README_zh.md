@@ -43,6 +43,15 @@ tdl send "视频文件夹完整路径" --to "https://t.me/c/1234567890/42"
 再次运行同一命令会核对消息并继续未完成文件。加 `--dry-run` 只预览；
 不兼容编码只有加 `--allow-transcode` 才会转换。首次运行不会按同名文件导入旧上传历史。
 
+从收藏夹按消息 ID 批量转发到话题：
+
+```sh
+tdl forward --from me --ids "100-160" --exclude "150" --to "话题链接"
+```
+
+也支持 `--ids "100,160"` 或多个范围混合。默认整组补齐，排除组内任意一条就跳过整组。
+加 `--dry-run` 预览；加 `--mode clone` 复制。转发仅在本次执行内去重，重复运行会再次发送。
+
 使用 `tdl up -p video.mp4 --video-mode stream` 可保留 H.264/HEVC/AV1 编码，
 无损调整 MP4 索引位置后作为视频发送，并在发送前确认 Telegram 保留了封面和流式播放属性。
 需要安装 FFmpeg（包含 FFprobe）；其他编码可使用 `--video-mode compatible` 转换。

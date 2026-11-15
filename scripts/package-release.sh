@@ -33,6 +33,7 @@ if [[ "$target_os" == "$(go env GOHOSTOS)" && "$target_arch" == "$(go env GOHOST
   "$stage/$binary" version
   "$stage/$binary" upload --help | grep -q -- --video-mode
   "$stage/$binary" send --help | grep -q -- --allow-transcode
+  "$stage/$binary" forward --help | grep -q -- --exclude
 fi
 
 archive="$output_dir/tdl_${os_name}_${arch_name}.${extension}"

@@ -1,5 +1,20 @@
 本版提供 Windows、macOS、Linux 的 x86_64 和 ARM64 预编译程序，下载解压后即可使用，无需安装 Go 或编译源码。
 
+### v0.20.4-video.4：按 ID 范围批量转发
+
+```sh
+tdl forward --from me --ids "100-160" --exclude "150" --to "话题链接"
+```
+
+- 支持单个 ID、多个 ID、闭区间及混合范围；排除项也支持多个 ID 和范围。
+- 目标话题链接直接解析并检查，收藏夹中的 ID 空档不会误读为其他聊天中的消息。
+- 默认补齐整组，排除相册任意成员时跳过整组；同一组在本次只转发一次。
+- 发送失败会返回失败状态，不再把失败项记入本次成功列表；整组准备失败时停止该组，避免静默漏项。
+- 普通转发遇到不明网络错误时不会自动改用 clone 重发，减少回执不明导致的重复发送。
+- 已在收藏夹实测普通转发与 clone，核对每组三条消息；排除组内一项及范围外的同组成员均正确跳过整组。
+
+加 `--dry-run` 可先查看清单，`--mode clone` 使用复制模式。转发去重仅限本次执行，跨次任务续传尚未实现。
+
 ### v0.20.4-video.3：文件夹直接发到话题
 
 ```sh
@@ -57,4 +72,5 @@ macOS/Linux 安装包经过交叉编译；Linux x86_64 在发布流程中检查 
 
 This fork adds reliable video metadata, sized JPEG thumbnails, lossless faststart remuxing, and validated streaming uploads.
 New in video.3: `tdl send FOLDER --to TOPIC_LINK` adds recursive SHA256 deduplication, durable receipts, and verified resume.
+New in video.4: ID-based bulk forwarding from Saved Messages, topic links, explicit exclusions, and complete-album handling.
 Choose your platform archive, install FFmpeg separately, and see INSTALL-video.md for setup. No Go toolchain is needed.

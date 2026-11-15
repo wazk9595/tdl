@@ -43,8 +43,8 @@ jobs:
           set -euo pipefail
           mapfile -t packages < <(go list ./... | grep -v '/test\($\|/\)')
           go test "${packages[@]}"
-          go test ./core/uploader ./core/util/mediautil
-          go test -race -p 1 ./app/send ./core/uploader
+          go test ./core/uploader ./core/util/mediautil ./core/forwarder ./core/util/tutil
+          go test -race -p 1 ./app/send ./app/forward ./core/uploader ./core/forwarder
 
   build:
     needs: test

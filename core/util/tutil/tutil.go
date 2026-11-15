@@ -217,15 +217,22 @@ func GetGroupedMessages(ctx context.Context, c *tg.Client, peer tg.InputPeerClas
 	}
 	// https://telegram.org/blog/albums-saved-messages
 	// Each album can include up to 10 photos or videos
-	batchSize := 20
+	batchSize := 21
 
-	it := query.Messages(c).GetHistory(peer).
-		OffsetID(msg.ID + 11). // from latest to oldest
-		BatchSize(batchSize).Iter()
+	result, err := c.MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
+		Peer: peer, OffsetID: msg.ID, AddOffset: -10, Limit: batchSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+	list, ok := result.(interface{ GetMessages() []tg.MessageClass })
+	if !ok {
+		return nil, errors.Errorf("unexpected history response %T", result)
+	}
 
 	messages := make([]*tg.Message, 0, batchSize)
-	for i := 0; it.Next(ctx) && i < batchSize; i++ {
-		m, ok := it.Value().Msg.(*tg.Message)
+	for _, item := range list.GetMessages() {
+		m, ok := item.(*tg.Message)
 		if !ok {
 			continue
 		}

@@ -26,6 +26,7 @@ type iterOptions struct {
 	to      *vm.Program
 	edit    *vm.Program
 	dialogs []*tmessage.Dialog
+	batch   *batchPlan
 	mode    forwarder.Mode
 	silent  bool
 	dryRun  bool
@@ -91,6 +92,9 @@ func (i *iter) Next(ctx context.Context) bool {
 	}
 
 	// end of iteration or error occurred
+	for i.i < len(i.opts.dialogs) && len(i.opts.dialogs[i.i].Messages) == 0 {
+		i.i++
+	}
 	if i.i >= len(i.opts.dialogs) || i.err != nil {
 		return false
 	}
@@ -107,13 +111,26 @@ func (i *iter) Next(ctx context.Context) bool {
 		i.j = 0
 	}
 
-	from, err := i.opts.manager.FromInputPeer(ctx, p)
+	var from peers.Peer
+	var err error
+	if i.opts.batch != nil {
+		from = i.opts.batch.Source
+	} else {
+		from, err = i.opts.manager.FromInputPeer(ctx, p)
+	}
 	if err != nil {
 		i.err = errors.Wrap(err, "get from peer")
 		return false
 	}
 
-	msg, err := tutil.GetSingleMessage(ctx, i.opts.pool.Default(ctx), from.InputPeer(), m)
+	var msg *tg.Message
+	if i.opts.batch != nil {
+		original := i.opts.batch.Messages[m]
+		copy := *original
+		msg = &copy
+	} else {
+		msg, err = tutil.GetSingleMessage(ctx, i.opts.pool.Default(ctx), from.InputPeer(), m)
+	}
 	if err != nil {
 		i.err = errors.Wrapf(err, "get message: %d", m)
 		return false

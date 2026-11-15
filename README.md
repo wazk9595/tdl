@@ -38,6 +38,15 @@ Recursively upload a folder to a forum topic with SHA256 deduplication, durable 
 Repeat the same command to resume. Videos preserve their codecs by default; incompatible codecs require `--allow-transcode`.
 Use `--dry-run` to preview. Previously uploaded files are not imported by filename. Keep the task journal for future runs.
 
+Bulk forwarding from Saved Messages supports inclusive ID ranges, individual IDs, and exclusions:
+
+```sh
+tdl forward --from me --ids "100-160" --exclude "150" --to "https://t.me/c/1234567890/42"
+```
+
+Albums are expanded as complete groups; excluding any member skips its whole album. Use `--ids "100,160"` for individual IDs,
+`--dry-run` to preview, or `--mode clone` to copy. Forwarding deduplicates within one run only; rerunning forwards again.
+
 ## Preview
 
 It reaches my proxy's speed limit, and the **speed depends on whether you are a premium**

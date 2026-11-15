@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/gotd/td/tg"
 	pw "github.com/jedib0t/go-pretty/v6/progress"
 	"github.com/mattn/go-runewidth"
 
@@ -14,9 +15,10 @@ import (
 )
 
 type progress struct {
-	pw       pw.Writer
-	trackers map[tuple]*pw.Tracker // TODO(iyear): concurrent map
-	elemName map[int64]string
+	pw                pw.Writer
+	trackers          map[tuple]*pw.Tracker // TODO(iyear): concurrent map
+	elemName          map[int64]string
+	succeeded, failed int
 }
 
 type tuple struct {
@@ -52,6 +54,17 @@ func (p *progress) OnClone(elem forwarder.Elem, state forwarder.ProgressState) {
 }
 
 func (p *progress) OnDone(elem forwarder.Elem, err error) {
+	count := 1
+	if prepared, ok := elem.(interface{ PreparedGroup() ([]*tg.Message, bool) }); ok {
+		if group, exists := prepared.PreparedGroup(); exists {
+			count = len(group)
+		}
+	}
+	if err == nil {
+		p.succeeded += count
+	} else {
+		p.failed += count
+	}
 	tracker, ok := p.trackers[p.tuple(elem)]
 	if !ok {
 		return

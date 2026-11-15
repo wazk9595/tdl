@@ -101,6 +101,21 @@ tdl up -p "视频完整路径" --video-mode compatible --video-encoder libx264
 发送前会检查 Telegram 返回的视频类型、封面及所需流式播放属性。默认保留源文件。
 转换或换封装会选择首个非封面视频流和首条音轨；`original` 模式用于保留原始字节，但不保证流式播放。
 
+## 从收藏夹批量转发
+
+```powershell
+# ID 100 到 160，包含两端
+tdl forward --from me --ids "100-160" --to "话题链接"
+# 只选 ID 100 和 160
+tdl forward --from me --ids "100,160" --to "话题链接"
+# 同一范围排除 ID 150
+tdl forward --from me --ids "100-160" --exclude "150" --to "话题链接"
+```
+
+默认补齐整组相册；排除项属于相册时跳过整组。范围与多个 ID 可混合，排除项也支持范围。
+先加 `--dry-run` 可预览最终消息清单；需要去掉转发来源时加 `--mode clone`。
+转发只在本次执行内去重，再次运行会重新转发；文件夹上传的任务记录不适用于此命令。
+
 ## 更新
 
 本增强版的 `tdl update` 从 `wazk9595/tdl` 的 Release 获取对应平台的安装包并校验 SHA256。

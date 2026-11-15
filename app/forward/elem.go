@@ -36,3 +36,20 @@ func (i *iterElem) AsSilent() bool { return i.opts.silent }
 func (i *iterElem) AsDryRun() bool { return i.opts.dryRun }
 
 func (i *iterElem) AsGrouped() bool { return i.opts.grouped }
+
+func (i *iterElem) PreparedGroup() ([]*tg.Message, bool) {
+	if i.opts.batch == nil {
+		return nil, false
+	}
+	group, ok := i.opts.batch.Groups[i.msg.ID]
+	if !ok {
+		return nil, false
+	}
+	copy := append([]*tg.Message(nil), group...)
+	for index, msg := range copy {
+		if msg.ID == i.msg.ID {
+			copy[index] = i.msg
+		}
+	}
+	return copy, true
+}
